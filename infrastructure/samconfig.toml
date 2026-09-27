@@ -1,0 +1,16 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "Campus-Pilot"
+capabilities = "CAPABILITY_NAMED_IAM"
+resolve_s3 = true
+confirm_changeset = true
+parameter_overrides = "Stage=\"dev\""
+s3_prefix = "Campus-Pilot"
+disable_rollback = true
+image_repositories = []
+[default.validate.parameters]
+lint = true
+
+[default.global.parameters]
+region = "ap-south-1"

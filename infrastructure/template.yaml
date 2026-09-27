@@ -1,0 +1,178 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Campus Workflow AI — Phase 3 infrastructure.
+  S3 (raw document storage + Textract output), single-table DynamoDB
+  (sessions/documents/tasks), one least-privilege IAM execution role shared
+  across Textract/Bedrock/DynamoDB access, and a CloudWatch log group.
+  Amplify (frontend hosting) and compute (Lambda/EC2/App Runner for the
+  backend) are deliberately out of scope here — Phase 10.
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+    Description: Deployment stage, used to namespace resource names.
+
+Resources:
+  # ---------------------------------------------------------------------
+  # S3 — raw uploads land under documents/{document_id}/original.pdf,
+  # Textract output under textract/{document_id}/output.json (per PRD 4.2 /
+  # build-plan Phase 3). Bucket names must be globally unique across ALL AWS
+  # accounts, so the name is derived from account id + region, not hardcoded.
+  # ---------------------------------------------------------------------
+  DocumentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "campus-workflow-ai-docs-${Stage}-${AWS::AccountId}-${AWS::Region}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        # Required so the browser can PUT directly to a presigned URL
+        # (Phase 4) instead of routing the file through the backend.
+        CorsRules:
+          - AllowedOrigins:
+              - "http://localhost:5173"
+              # Add the deployed Amplify domain here in Phase 10, e.g.:
+              # - "https://main.dxxxxxxxxxxxxx.amplifyapp.com"
+            AllowedMethods: [GET, PUT, POST, HEAD]
+            AllowedHeaders: ["*"]
+            MaxAge: 3000
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbortIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+
+  # ---------------------------------------------------------------------
+  # DynamoDB — single-table design (PRD section 5 / build-plan Phase 3).
+  # PK: SESSION#<session_id>   SK: DOC#<document_id> | TASK#<task_id>
+  # On-demand billing: no capacity planning needed at hackathon-demo scale,
+  # and it's the safer default against a runaway bill from a misbehaving
+  # retry loop. No GSIs — both access patterns are Query-by-PK-prefix.
+  # ---------------------------------------------------------------------
+  CampusWorkflowTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "CampusWorkflowTable-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
+  # ---------------------------------------------------------------------
+  # CloudWatch — one log group the backend writes structured lines to
+  # (request_id, document_id, provider, status, latency_ms — Phase 10.5).
+  # Lambda would create its own /aws/lambda/... group automatically; this
+  # one exists so the log group is guaranteed to exist regardless of which
+  # compute option Phase 10 ends up choosing (Lambda vs EC2/App Runner).
+  # ---------------------------------------------------------------------
+  BackendLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/campus-workflow-ai/backend-${Stage}"
+      RetentionInDays: 14
+
+  # ---------------------------------------------------------------------
+  # IAM — one least-privilege execution role, scoped exactly to what the
+  # PRD names (S3, Textract, Bedrock, DynamoDB, CloudWatch Logs) and
+  # nothing else. Trust policy allows either Lambda or EC2 to assume it,
+  # since Phase 10 hasn't picked compute yet — swap/narrow this once it has.
+  # ---------------------------------------------------------------------
+  BackendExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "CampusWorkflowAI-BackendRole-${Stage}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CampusWorkflowAI-S3Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadWriteDocumentsBucket
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                Resource: !Sub "${DocumentsBucket.Arn}/*"
+              - Sid: ListDocumentsBucket
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt DocumentsBucket.Arn
+        - PolicyName: CampusWorkflowAI-TextractAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - textract:StartDocumentAnalysis
+                  - textract:GetDocumentAnalysis
+                  - textract:AnalyzeDocument
+                Resource: "*" # Textract does not support resource-level permissions
+        - PolicyName: CampusWorkflowAI-BedrockAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:Converse
+                Resource: "*" # scope to a specific model ARN once BEDROCK_MODEL_ID is finalized
+        - PolicyName: CampusWorkflowAI-DynamoDBAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:UpdateItem
+                Resource: !GetAtt CampusWorkflowTable.Arn
+        - PolicyName: CampusWorkflowAI-LogsAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "${BackendLogGroup.Arn}:*"
+
+Outputs:
+  DocumentsBucketName:
+    Description: Copy this into backend/.env as S3_BUCKET
+    Value: !Ref DocumentsBucket
+  DynamoDBTableName:
+    Description: Copy this into backend/.env as DYNAMODB_TABLE
+    Value: !Ref CampusWorkflowTable
+  BackendExecutionRoleArn:
+    Description: Attach this role to whatever runs the backend (Lambda function or EC2 instance profile) in Phase 10
+    Value: !GetAtt BackendExecutionRole.Arn
+  BackendLogGroupName:
+    Description: CloudWatch log group for backend structured logs
+    Value: !Ref BackendLogGroup
