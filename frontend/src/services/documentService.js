@@ -39,6 +39,21 @@ export const documentService = {
     const session_id = await getSessionId();
     return api.post(`/documents/${documentId}/process`, { session_id });
   },
+
+  async deleteDocument(documentId) {
+    if (isDemoMode()) {
+      demoCopy = demoCopy.filter((d) => d.document_id !== documentId);
+      return;
+    }
+    const session_id = await getSessionId();
+    return api.delete(`/documents/${documentId}?session_id=${session_id}`);
+  },
+
+  async getPreviewUrl(documentId) {
+    if (isDemoMode()) return null;
+    const session_id = await getSessionId();
+    return api.get(`/documents/${documentId}/preview-url?session_id=${session_id}`);
+  },
 };
 
 export const uploadService = {
@@ -93,7 +108,7 @@ export const uploadService = {
       return newDoc;
     }
 
-    // Trigger backend processing (Textract OCR -> AI extraction -> DynamoDB)
+    // Trigger backend processing (Textract / Office extractor → AI extraction → DynamoDB)
     documentService.processDocument(document_id).catch((err) => {
       console.error("Document processing error:", err);
     });

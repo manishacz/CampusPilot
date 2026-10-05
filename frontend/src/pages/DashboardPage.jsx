@@ -144,17 +144,17 @@ export function DashboardPage() {
             </span>
           )}
           {dueSoonCount > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-warning-foreground">
+            <span className="inline-flex items-center gap-1.5 text-warning font-medium">
               <Clock className="size-3" />
               {dueSoonCount} due soon
             </span>
           )}
-          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 text-info font-medium">
             <ListTodo className="size-3" />
             {activeTasks.length} active
           </span>
           {completedCount > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-success">
+            <span className="inline-flex items-center gap-1.5 text-success font-medium">
               <CheckCircle2 className="size-3" />
               {completedCount} done
             </span>

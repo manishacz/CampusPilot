@@ -50,7 +50,8 @@ export const taskService = {
       );
       return demoCopy.find((t) => t.task_id === taskId);
     }
-    return api.post(`/tasks/${taskId}/complete`);
+    const session_id = await getSessionId();
+    return api.post(`/tasks/${taskId}/complete?session_id=${session_id}`);
   },
 
   async rankTasks() {

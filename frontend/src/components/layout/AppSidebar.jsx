@@ -74,9 +74,18 @@ export function AppSidebar({ collapsed, onToggle }) {
       {/* User + logout */}
       <div className={cn("p-2 flex flex-col gap-px", collapsed && "items-center")}>
         {!collapsed && user && (
-          <div className="px-2 py-1.5 mb-0.5">
-            <p className="text-xs font-medium text-sidebar-foreground truncate">{user.name}</p>
-            <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
+          <div className="flex items-center gap-2 px-2 py-1.5 mb-0.5">
+            <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary shrink-0">
+              <span className="text-[10px] font-semibold text-primary-foreground uppercase">
+                {user.name
+                  ? user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                  : user.email?.[0]?.toUpperCase() ?? "?"}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-sidebar-foreground truncate">{user.name}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
+            </div>
           </div>
         )}
         <Button

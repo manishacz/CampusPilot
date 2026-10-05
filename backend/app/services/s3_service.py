@@ -38,6 +38,14 @@ class S3Service:
             ExpiresIn=expires_in,
         )
 
+    def generate_presigned_get_url(self, s3_key: str, expires_in: int = 900) -> str:
+        """Generate a presigned GET URL so a browser can read an S3 object (15 min default)."""
+        return self._client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": self._bucket, "Key": s3_key},
+            ExpiresIn=expires_in,
+        )
+
     def put_json(self, key: str, payload: dict) -> None:
         """Writes a JSON object to S3 — used for the Textract structured-output dump."""
         self._client.put_object(
@@ -46,3 +54,28 @@ class S3Service:
             Body=json.dumps(payload, indent=2).encode("utf-8"),
             ContentType="application/json",
         )
+
+    def get_object_bytes(self, key: str) -> bytes:
+        """Downloads an S3 object and returns its raw bytes.
+
+        Used by the Office extractor to read docx/xlsx/pptx files directly
+        (the browser PUT them via presigned URL; the backend reads them here).
+        """
+        response = self._client.get_object(Bucket=self._bucket, Key=key)
+        return response["Body"].read()
+
+    def delete_objects(self, keys: list[str]) -> None:
+        """Delete one or more S3 objects in a single API call (best-effort).
+
+        S3's delete_objects is idempotent — missing keys are silently ignored.
+        This is intentional: the textract output may never have been written
+        if extraction failed early.
+        """
+        if not keys:
+            return
+        self._client.delete_objects(
+            Bucket=self._bucket,
+            Delete={"Objects": [{"Key": k} for k in keys], "Quiet": True},
+        )
+
+

@@ -9,7 +9,8 @@ docs/
 # ==============================================================================
 .env
 .env.*
-!/.env.example
+!.env.example
+!**/.env.example
 *.local
 
 # ==============================================================================
@@ -39,7 +40,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-/.env.example
 
 # Virtual Environments
 .venv/

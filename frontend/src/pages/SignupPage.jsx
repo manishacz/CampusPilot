@@ -101,8 +101,8 @@ export function SignupPage() {
         </div>
 
         <div className="mb-6">
-          <h1 className="text-xl font-semibold tracking-tight">Create your account</h1>
-          <p className="text-sm text-muted-foreground mt-1">Get started with CampusPilot in seconds.</p>
+          <h1 className="text-xl text-center font-semibold tracking-tight">Create your account</h1>
+          <p className="text-sm text-center text-muted-foreground mt-1">Get started with CampusPilot in seconds.</p>
         </div>
 
         <Button
@@ -191,7 +191,7 @@ export function SignupPage() {
           </div>
 
           <Separator className="my-2" />
-          <p className="text-xs text-muted-foreground">Optional — helps with eligibility matching</p>
+          <p className="text-xs text-muted-foreground"> (Optional) helps with eligibility matching</p>
 
           <div className="space-y-1.5">
             <Label htmlFor="college">College</Label>

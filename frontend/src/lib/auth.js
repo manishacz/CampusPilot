@@ -13,11 +13,13 @@ async function upsertProfile(authUser) {
     "";
   const avatar_url = user_metadata?.avatar_url || user_metadata?.picture || null;
 
+  // ignoreDuplicates: true — only insert if the row doesn't exist yet.
+  // This prevents a Google re-login from wiping academic fields the user saved.
   const { data, error } = await supabase
     .from("profiles")
     .upsert(
       { id, email, full_name, avatar_url },
-      { onConflict: "id", ignoreDuplicates: false }
+      { onConflict: "id", ignoreDuplicates: true }
     )
     .select()
     .maybeSingle();
@@ -118,19 +120,32 @@ export const auth = {
     const user = sessionData.session?.user;
     if (!user) throw new Error("Not authenticated.");
 
-    const patch = {};
-    if (updates.name !== undefined) patch.full_name = updates.name;
-    if (updates.full_name !== undefined) patch.full_name = updates.full_name;
-    if (updates.college !== undefined) patch.college = updates.college;
-    if (updates.branch !== undefined) patch.branch = updates.branch;
-    if (updates.graduation_year !== undefined) patch.graduation_year = updates.graduation_year;
-    if (updates.cgpa !== undefined) patch.cgpa = updates.cgpa;
-    if (updates.preferred_language !== undefined) patch.preferred_language = updates.preferred_language;
+    // Sanitize: convert empty strings to null so DB doesn't store ""
+    const sanitize = (v) => (v === "" || v === undefined ? null : v);
+
+    // Always include id so upsert can create the row for Google OAuth users
+    // who may not have had academic columns written on first sign-in.
+    const patch = {
+      id: user.id,
+      email: user.email,
+    };
+
+    if (updates.name !== undefined || updates.full_name !== undefined) {
+      patch.full_name = sanitize(updates.name ?? updates.full_name);
+    }
+    if (updates.college !== undefined) patch.college = sanitize(updates.college);
+    if (updates.branch !== undefined) patch.branch = sanitize(updates.branch);
+    if (updates.graduation_year !== undefined)
+      patch.graduation_year = updates.graduation_year ? Number(updates.graduation_year) : null;
+    if (updates.cgpa !== undefined)
+      patch.cgpa = updates.cgpa ? Number(updates.cgpa) : null;
+    if (updates.preferred_language !== undefined)
+      patch.preferred_language = sanitize(updates.preferred_language);
 
     const { error } = await supabase
       .from("profiles")
-      .update(patch)
-      .eq("id", user.id);
+      .upsert(patch, { onConflict: "id", ignoreDuplicates: false });
+
     if (error) throw new Error(error.message);
 
     return loadProfile(user);

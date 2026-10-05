@@ -3,12 +3,13 @@ Task endpoints — Phase 9.
 
     GET   /tasks?session_id=&lang=en|hi|kn
     PATCH /tasks/{task_id}?session_id=
+    POST  /tasks/{task_id}/complete?session_id=
 """
 
 from fastapi import APIRouter, Query
 
 from app.core.exceptions import NotFoundError
-from app.models.task import TaskUpdateRequest
+from app.models.task import TaskStatus, TaskUpdateRequest
 from app.repositories.task_repository import TaskRepository
 from app.services.task_service import apply_locale
 
@@ -29,4 +30,14 @@ def update_task(task_id: str, payload: TaskUpdateRequest, session_id: str = Quer
         raise NotFoundError(f"Task {task_id} not found")
 
     _repo.update_task(session_id, task_id, payload.model_dump(mode="json", exclude_unset=True))
+    return apply_locale(_repo.get_task(session_id, task_id), "en")
+
+
+@router.post("/{task_id}/complete")
+def complete_task(task_id: str, session_id: str = Query(...)) -> dict:
+    task = _repo.get_task(session_id, task_id)
+    if task is None:
+        raise NotFoundError(f"Task {task_id} not found")
+
+    _repo.update_task(session_id, task_id, {"status": TaskStatus.COMPLETED})
     return apply_locale(_repo.get_task(session_id, task_id), "en")

@@ -49,8 +49,8 @@ export function LoginPage() {
         </div>
 
         <div className="mb-6">
-          <h1 className="text-xl font-semibold tracking-tight">Welcome back</h1>
-          <p className="text-sm text-muted-foreground mt-1">Sign in to your account to continue.</p>
+          <h1 className="text-xl text-center font-semibold tracking-tight">Welcome back</h1>
+          <p className="text-sm text-center text-muted-foreground mt-1">Sign in to your account to continue.</p>
         </div>
 
         <Button

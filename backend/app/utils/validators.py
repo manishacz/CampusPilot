@@ -4,18 +4,26 @@ Upload validation — Phase 4.
 Runs at request time, before the presigned URL is even generated. The
 backend never sees the file's bytes (the browser PUTs straight to S3), so
 this only guards the filename/extension — matching the PRD's allowed
-input types (PDF, PNG, JPG/JPEG, TIFF).
+input types (PDF, DOCX, XLSX, PPTX, PNG, JPG/JPEG, TIFF).
 """
 
 from app.core.exceptions import ValidationError
 
 _ALLOWED_EXTENSIONS = {
-    "pdf": "application/pdf",
+    # Images
     "png": "image/png",
     "jpg": "image/jpeg",
     "jpeg": "image/jpeg",
     "tif": "image/tiff",
     "tiff": "image/tiff",
+    # Documents
+    "pdf": "application/pdf",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "doc": "application/msword",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "xls": "application/vnd.ms-excel",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "ppt": "application/vnd.ms-powerpoint",
 }
 
 

@@ -26,8 +26,12 @@ export function App() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/tasks" element={<TasksPage />} />
               <Route path="/weekly" element={<WeeklyPage />} />
+              {/* Legacy routes — redirect to user-scoped URLs handled inside the pages */}
               <Route path="/documents" element={<DocumentsPage />} />
               <Route path="/documents/:id" element={<DocumentDetailPage />} />
+              {/* User-scoped document routes */}
+              <Route path="/:userId/documents" element={<DocumentsPage />} />
+              <Route path="/:userId/documents/:id" element={<DocumentDetailPage />} />
               <Route path="/profile" element={<ProfilePage />} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />

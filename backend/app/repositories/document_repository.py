@@ -59,6 +59,12 @@ class DocumentRepository:
             ExpressionAttributeValues=expr_values,
         )
 
+    def delete_document(self, session_id: str, document_id: str) -> None:
+        """Hard-delete the DynamoDB item for a document."""
+        self._table.delete_item(
+            Key={"PK": self._pk(session_id), "SK": self._sk(document_id)},
+        )
+
     @staticmethod
     def _to_document(item: dict) -> Document:
         clean = {k: v for k, v in item.items() if k not in ("PK", "SK")}
